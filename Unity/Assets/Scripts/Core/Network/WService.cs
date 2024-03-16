@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
+using System.Linq;
 using System.Net;
 using System.Net.WebSockets;
 
@@ -14,18 +14,21 @@ namespace ET
         
         private readonly Dictionary<long, WChannel> channels = new Dictionary<long, WChannel>();
 
-        public WService(ThreadSynchronizationContext threadSynchronizationContext, IEnumerable<string> prefixs)
+        public ThreadSynchronizationContext ThreadSynchronizationContext;
+
+        public WService(IEnumerable<string> prefixs)
         {
-            this.ThreadSynchronizationContext = threadSynchronizationContext;
+            this.ThreadSynchronizationContext = new ThreadSynchronizationContext();
             
             this.httpListener = new HttpListener();
 
             StartAccept(prefixs).Coroutine();
         }
         
-        public WService(ThreadSynchronizationContext threadSynchronizationContext)
+        public WService()
         {
-            this.ThreadSynchronizationContext = threadSynchronizationContext;
+            this.ServiceType = ServiceType.Outer;
+            this.ThreadSynchronizationContext = new ThreadSynchronizationContext();
         }
         
         private long GetId
@@ -36,15 +39,19 @@ namespace ET
             }
         }
         
-        public WChannel Create(string address, long id)
+        public override void Create(long id, IPEndPoint ipEndpoint)
         {
-			ClientWebSocket webSocket = new ClientWebSocket();
-            WChannel channel = new WChannel(id, webSocket, address, this);
+			ClientWebSocket webSocket = new();
+            WChannel channel = new(id, webSocket, ipEndpoint, this);
             this.channels[channel.Id] = channel;
-            return channel;
         }
 
-        public override void Remove(long id)
+        public override void Update()
+        {
+            this.ThreadSynchronizationContext.Update();
+        }
+
+        public override void Remove(long id, int error = 0)
         {
             WChannel channel;
             if (!this.channels.TryGetValue(id, out channel))
@@ -52,21 +59,30 @@ namespace ET
                 return;
             }
 
+            channel.Error = error;
+
             this.channels.Remove(id);
             channel.Dispose();
         }
 
-        public override bool IsDispose()
+        public override bool IsDisposed()
         {
             return this.ThreadSynchronizationContext == null;
         }
 
-        protected void Get(long id, string address)
+        protected void Get(long id, IPEndPoint ipEndPoint)
         {
             if (!this.channels.TryGetValue(id, out _))
             {
-                this.Create(address, id);
+                this.Create(id, ipEndPoint);
             }
+        }
+        
+        public WChannel Get(long id)
+        {
+            WChannel channel = null;
+            this.channels.TryGetValue(id, out channel);
+            return channel;
         }
 
         public override void Dispose()
@@ -98,10 +114,10 @@ namespace ET
                         HttpListenerWebSocketContext webSocketContext = await httpListenerContext.AcceptWebSocketAsync(null);
 
                         WChannel channel = new WChannel(this.GetId, webSocketContext, this);
-
+                        channel.RemoteAddress = httpListenerContext.Request.RemoteEndPoint;
                         this.channels[channel.Id] = channel;
 
-                        this.OnAccept(channel.Id, channel.RemoteAddress);
+                        this.AcceptCallback(channel.Id, channel.RemoteAddress);
                     }
                     catch (Exception e)
                     {
@@ -113,7 +129,7 @@ namespace ET
             {
                 if (e.ErrorCode == 5)
                 {
-                    throw new Exception($"CMD管理员中输入: netsh http add urlacl url=http://*:8080/ user=Everyone", e);
+                    throw new Exception($"CMD管理员中输入: netsh http add urlacl url=http://*:8080/ user=Everyone   {prefixs.ToList().ListToString()}", e);
                 }
 
                 Log.Error(e);
@@ -123,24 +139,15 @@ namespace ET
                 Log.Error(e);
             }
         }
-        
-        protected override void Get(long id, IPEndPoint address)
-        {
-            throw new NotImplementedException();
-        }
 
-        protected override void Send(long channelId, long actorId, MemoryStream stream)
+        public override void Send(long channelId, MemoryBuffer memoryBuffer)
         {
             this.channels.TryGetValue(channelId, out WChannel channel);
             if (channel == null)
             {
                 return;
             }
-            channel.Send(stream);
-        }
-
-        public override void Update()
-        {
+            channel.Send(memoryBuffer);
         }
     }
 }

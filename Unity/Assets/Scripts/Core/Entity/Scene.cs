@@ -1,112 +1,54 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
+using MongoDB.Bson.Serialization.Attributes;
 
 namespace ET
 {
     [EnableMethod]
-    [DebuggerDisplay("ViewGoName,nq")]
-    public sealed class Scene: Entity
+    [ChildOf]
+    public class Scene: Entity, IScene
     {
-        public int Zone
-        {
-            get;
-        }
-
+        [BsonIgnore]
+        public Fiber Fiber { get; set; }
+        
+        public string Name { get; }
+        
         public SceneType SceneType
-        {
-            get;
-        }
-
-        public string Name
         {
             get;
             set;
         }
 
-        public Scene(long instanceId, int zone, SceneType sceneType, string name, Entity parent)
+        public Scene()
         {
-            this.Id = instanceId;
-            this.InstanceId = instanceId;
-            this.Zone = zone;
-            this.SceneType = sceneType;
-            this.Name = name;
-            this.IsCreated = true;
-            this.IsNew = true;
-            this.Parent = parent;
-            this.Domain = this;
-            this.IsRegister = true;
-            Log.Info($"scene create: {this.SceneType} {this.Name} {this.Id} {this.InstanceId} {this.Zone}");
         }
 
-        public Scene(long id, long instanceId, int zone, SceneType sceneType, string name, Entity parent)
+        public Scene(Fiber fiber, long id, long instanceId, SceneType sceneType, string name)
         {
             this.Id = id;
-            this.InstanceId = instanceId;
-            this.Zone = zone;
-            this.SceneType = sceneType;
             this.Name = name;
+            this.InstanceId = instanceId;
+            this.SceneType = sceneType;
             this.IsCreated = true;
             this.IsNew = true;
-            this.Parent = parent;
-            this.Domain = this;
+            this.Fiber = fiber;
+            this.IScene = this;
             this.IsRegister = true;
-            Log.Info($"scene create: {this.SceneType} {this.Name} {this.Id} {this.InstanceId} {this.Zone}");
+            Log.Info($"scene create: {this.SceneType} {this.Id} {this.InstanceId}");
         }
 
         public override void Dispose()
         {
             base.Dispose();
             
-            Log.Info($"scene dispose: {this.SceneType} {this.Name} {this.Id} {this.InstanceId} {this.Zone}");
-        }
-
-        public Scene Get(long id)
-        {
-            if (this.Children == null)
-            {
-                return null;
-            }
-
-            if (!this.Children.TryGetValue(id, out Entity entity))
-            {
-                return null;
-            }
-
-            return entity as Scene;
-        }
-
-        public new Entity Domain
-        {
-            get => this.domain;
-            set => this.domain = value;
-        }
-
-        public new Entity Parent
-        {
-            get
-            {
-                return this.parent;
-            }
-            set
-            {
-                if (value == null)
-                {
-                    //this.parent = this;
-                    return;
-                }
-
-                this.parent = value;
-                this.parent.Children.Add(this.Id, this);
-            }
+            Log.Info($"scene dispose: {this.SceneType} {this.Id} {this.InstanceId}");
         }
         
-#if ENABLE_CODES
-        protected override string ViewGoName
+        protected override string ViewName
         {
             get
             {
-                return $"{this.GetType().Name} ({this.SceneType})";    
+                return $"{this.GetType().Name} ({this.SceneType})";
             }
         }
-#endif
     }
 }

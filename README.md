@@ -1,16 +1,116 @@
-# [English](https://github.com/egametang/Egametang/blob/master/README-EN.md) 
+# English: please use your browser to translate to english
 
 # __讨论QQ群 : 474643097__  
 
+---
+# 公司黑名单：  
+## 成都三猩元宇宙公司，拖欠员工工资，拖欠本人咨询费用  
+---
+
+---
+# 商业项目（已出现多个一个人开发的MMO上线，足以证明ET的强大）：    
+1. [千古风流](https://www.qiangu.com/) 大型mmo，团队100人2年开发完成  
+2. [神选誓约](https://www.taptap.cn/app/248095)  
+3. [危境](https://www.taptap.cn/app/271100) 一个技术一个策划开发的mmo，抖音可以搜索危境看直播  
+4. 魔力回忆 许木大厨一个人开发的魔力宝贝  
+5. [新生](https://store.steampowered.com/app/1704940/_/) steam上，一个人开发的科幻mmo  
+6. [怒斩屠龙之乾坤剑指](http://wan.rxqu.com/mobile/downfile/index/gid/9.html) 传奇项目  
+7. [魔法点点2](https://www.taptap.com/app/227804) 一个人开发  
+8. [养不大](https://www.taptap.com/app/71064)  
+9. 天天躲猫猫2（ios2019春节下载排行19）  
+10. [牛虎棋牌](https://gitee.com/ECPS_admin/PlanB)  
+11. [五星麻将](https://github.com/wufanjoin/fivestar)  
+12. [代号肉鸽：无限](https://www.taptap.cn/app/247225) 一个人开发  
+13. [卡车人生](https://www.kxdw.com/android/130033.html)  
+14. [掌门太闲](https://www.taptap.cn/app/361952) 一个人开发  
+15. [万世镜](https://www.taptap.cn/app/235872)  
+16. [Culture & Chest](https://play.google.com/store/apps/details?id=com.Inutan.CultureChest)  
+17. [史莱姆大乱斗](https://www.taptap.cn/app/228923)  
+---
+
+# ET8.1 发布!  
+8.1跟8区别不大，代码结构完全没有变化，主要是编译方式的修改，可以在Unity中按F6进行编译，也可以在IDE中进行编译，运行中reload可以先按F6编译，再按F7进行热重载   
+
+# ET8 发布! 貂蝉  
+1. 多线程多进程架构,架构更加灵活强大，多线程设计详细内容请看多线程设计课程  
+2. 抽象出纤程(Fiber)的概念，类似erlang的进程，非常轻松的创建多个纤程，利用多核，仍然是单线程开发的体验  
+3. 纤程调度: 主线程，线程池，每个纤程一个线程，3种调度方式  
+4. Fiber间通信的Actor消息机制  
+5. Entity方面，domain改成IScene，只要实现IScene接口，Entity就是domain，这样定义domain更加自由  
+6. 预测回滚的帧同步实现  想详细了解可以看帧同步课程  
+7. protobuf换成了memorypack，实现无gc的网络  
+8. 纯C#版的kcp库，性能非常强，由sj提交  
+9. 热更dll改成用ide编译，更加方便  
+10. sj利用source generater实现了代码自动模板功能，目前可以自动生成System类，开发者只需要定义Awake Update静态方法即可，特别方便  
+11. sj开发了分析器，实现了EntitySystemOf，根据entity接口一键生成对应的system方法  
+12. 客户端利用fiber实现网络独立线程（demo已实现），甚至可以把逻辑跟表现使用独立的纤程，更好的利用多核  
+13. 帧同步demo直接利用纤程创建房间，更加方便  
+14. 纯c#版寻路dotrecast，至此ET已经完全C#化，没有任何cpp代码了  
+15. kcp跟软路由底层同时支持tcp跟websocket，当udp联不通的情况下，可以切换成tcp Websocket，并且支持运行时动态切换，玩家不掉线！  
+16. 集成了sj的非托管容器库，性能爆炸  
+
+
+# 用ET的18个理由  
+1. 多进程多线程Actor架构，客户端跟服务端都可以轻松创建纤程(fiber)利用多核，比如客户端网络一个纤程，寻路一个纤程，帧同步逻辑层一个纤程，表现层一个纤程  
+2. async await协程同步代码编写，避免回调地狱  
+3. 0GC消耗，超强的MemoryPack序列化, 超强的网络层性能  
+4. kcp支持，网络响应非常迅速，并且闪断wifi 4g都不会导致掉线，做竞技游戏必备  
+5. kcp底层可以使用tcp udp Websocket协议，当udp联不通的情况下，可以切换成tcp Websocket，并且支持运行时动态切换，玩家不掉线！   
+6. 软路由防攻击设计，买些垃圾主机就可以防住黑客攻击，比买高防省钱多了，并且用户不会掉线  
+7. 双端C#开发，前后端共享代码，C#本身性能极强，仅次于CPP，不需要学一些乱起八糟的语言，很多独立游戏开发者，一个人就能用ET开发mmorpg游戏  
+8. 强大的编译分析器，编译器就能帮助大家写出正确的ET风格的代码  
+9. 客户端hybridclr热更新支持  
+10. 客户端服务端均支持运行时热重载，客户端服务端不需要关闭进程就能修改代码，大大提升了开发效率以及运营效率  
+11. 完善的demo，源码带有状态同步跟预测回滚的帧同步demo  
+12. 完善的机器人开发机制，机器人直接共享客户端逻辑代码，减少95%机器人开发工作量，接入ai机器人非常轻松。大规模机器人压测，轻而易举  
+13. 强大的ai开发机制，比行为树更加容易  
+14. 强大的单元测试开发机制，每个单元测试都是整个游戏环境，不用搞mock隔离，开发起来非常轻松  
+15. 优美的程序结构，数据跟方法完全分离  
+16. all in one的开发体验，开发时只需要启动unity，发布的时候又可以单独发布服务端，并且可以跨windows跟linux平台  
+17. 客户端服务端数据开发期完全可视化，开启ENABLE_VIEW宏即可在Unity Hierarchy面板中看到客户端跟服务端的所有的Entity对象以及字段的内容  
+18. WebGL以及微信小游戏支持，有ET8的webgl版本，开发体验跟ET8完全一致，无缝对接ET8的服务器  
+
+
+# 熊猫的三门课程,需要请加QQ 80081771：  
+1. [网络游戏架构设计](https://www.bilibili.com/video/BV1h84y1G7aH/?spm_id_from=333.999.0.0&vd_source=e55f8234b8f8039504cbf131082c93dd)  基于ET7.2，共27集，讲解ET7.2的框架设计细节  
+2. [帧同步设计](https://www.bilibili.com/video/BV1tX4y1C7pM/?share_source=copy_web&vd_source=001b901865c99550d1b2a8cd663695d4)  基于ET8，共12集，讲解预测回滚帧同步设计  
+3. [多线程架构设计](https://www.bilibili.com/video/BV1Ah4y1f7QT/?spm_id_from=333.999.0.0&vd_source=e55f8234b8f8039504cbf131082c93dd)  基于ET8，共11集，讲解ET8的多线程设计  
+4. WebGL小游戏框架，基于ET8，完善的网络，配置，热更等等，跟ET8使用一样  
+
+
 # [ET论坛](https://et-framework.cn)  
 
-# [ET商店](https://github.com/egametang/ET/tree/master/Store)  
+# [ET商店](./Store)  
 
-# [ET6.0视频教程上线](https://edu.uwa4d.com/course-intro/1/375)   
+# [ET视频教程](https://community.uwa4d.com/search?keyword=ET&scope=1)   
 
-# [运行指南](https://github.com/egametang/ET/blob/master/Book/1.1%E8%BF%90%E8%A1%8C%E6%8C%87%E5%8D%97.md)  
+# [运行指南](./Book/1.1运行指南.md)  
 
 # [分析器说明](https://www.yuque.com/u28961999/yms0nt/)
+
+# Benchmark
+100W Ping Pong 平均耗时4秒左右，平均每秒收发20W的消息。这个网络性能远远超过主线程的需求，大家可以自己测试一下，测试方法：
+Unity Menu->ServerTools select Benchmark, Start Watcher。然后在Logs目录，打开Debug日志等一会所有连接完成就能看到下面的日志了。  
+2022-12-02 22:19:48.9837 (C2G_BenchmarkHandler.cs:13) benchmark count: 1000001  
+2022-12-02 22:19:53.4621 (C2G_BenchmarkHandler.cs:13) benchmark count: 2000001  
+2022-12-02 22:19:57.0416 (C2G_BenchmarkHandler.cs:13) benchmark count: 3000001  
+2022-12-02 22:20:00.6186 (C2G_BenchmarkHandler.cs:13) benchmark count: 4000001  
+2022-12-02 22:20:04.1384 (C2G_BenchmarkHandler.cs:13) benchmark count: 5000001  
+2022-12-02 22:20:08.2236 (C2G_BenchmarkHandler.cs:13) benchmark count: 6000001  
+2022-12-02 22:20:12.2842 (C2G_BenchmarkHandler.cs:13) benchmark count: 7000001  
+2022-12-02 22:20:15.8544 (C2G_BenchmarkHandler.cs:13) benchmark count: 8000001  
+2022-12-02 22:20:19.4085 (C2G_BenchmarkHandler.cs:13) benchmark count: 9000001  
+2022-12-02 22:20:24.2969 (C2G_BenchmarkHandler.cs:13) benchmark count: 10000001  
+2022-12-02 22:20:41.1448 (C2G_BenchmarkHandler.cs:13) benchmark count: 11000001  
+2022-12-02 22:20:44.7174 (C2G_BenchmarkHandler.cs:13) benchmark count: 12000001  
+2022-12-02 22:20:48.3188 (C2G_BenchmarkHandler.cs:13) benchmark count: 13000001  
+2022-12-02 22:20:51.7793 (C2G_BenchmarkHandler.cs:13) benchmark count: 14000001  
+2022-12-02 22:20:55.3379 (C2G_BenchmarkHandler.cs:13) benchmark count: 15000001  
+2022-12-02 22:20:58.8810 (C2G_BenchmarkHandler.cs:13) benchmark count: 16000001  
+2022-12-02 22:21:02.5156 (C2G_BenchmarkHandler.cs:13) benchmark count: 17000001  
+2022-12-02 22:21:06.0132 (C2G_BenchmarkHandler.cs:13) benchmark count: 18000001  
+2022-12-02 22:21:09.5320 (C2G_BenchmarkHandler.cs:13) benchmark count: 19000001  
+
 
 # ET7 发布! 18岁亦菲
 1. 调整结构，机器人工程与服务器合并，更易使用，一个进程同时可以做server，也能创建机器人，真正的ALL IN ONE! -- 已实现  
@@ -20,7 +120,12 @@
 5. 增加软路由，可以防各种网络攻击而不影响正常玩家，网游必备！-- 已实现  
 6. 各种事件跟网络消息订阅带上DomainSceneType，更精确，更不容易出错 -- 已实现  
 7. sj兄弟添加了各种分析器，分析器保证了写出的代码必须符合ET规范，否则编译不通过！（这点ET6也增加上了） -- 已实现  
-8. ET7已经去除客户端热更新，请大家自己选择接入,接入huatuo或者ILRuntime都非常简单, 注意！(不要混淆客户端热更新跟服务端热更新，服务端热更新，ET一直都有)  
+8. ET7集成了huatuo热更新库。 注意！(不要混淆客户端热更新跟服务端热更新，服务端热更新，ET一直都有)  
+9. 网络改成独立线程，序列化反序列化都在网络线程处理，主线程压力大大减轻。并且重新整理了网络层代码，更优美了  
+10. 集成Unity.Mathematic数学库，逻辑层客户端跟服务端都使用这一套数学库，这样服务端跟客户端完全统一了  
+11. ENABLE_CODES模式下拆分成4个程序集，解决分析器失效的问题  
+12. Game管理的Singleton增加ISingletonUpdate跟ISingletonLateUpdate接口，实现相应的接口即可执行对应的Update跟LateUpdate方法，Game类解除了跟EventSystem等单间类的耦合关系  
+13. Actor消息判断如果是发向自己的进程则不用通过网络，直接处理即可，大大提升性能  
 
 
 # ET6 发布！ET6相比ET5有巨大变化，可以说是凤姐变亦菲，6.0拥有如下惊人的特点
@@ -116,27 +221,13 @@ ET框架是一个强大灵活的分布式服务端架构，完全可以满足绝
 [ET启动配置](http://www.cnblogs.com/fancybit/p/et2.html)  
 [框架demo介绍](http://www.jianshu.com/p/f2ea0d26c7c1)  
 [linux部署](http://gad.qq.com/article/detail/35973)  
-[linux部署，mongo安装，资源服搭建](http://www.tinkingli.com/?p=25)  
-[ET框架心跳包组件开发](http://www.tinkingli.com/?p=111)  
-[ET框架Actor使用与心得](http://www.tinkingli.com/?p=117)  
-[基于ET框架和UGUI的简单UI框架实现（渐渐写）](http://www.tinkingli.com/?p=124)  
-[ET框架笔记 (笑览世界写)](http://www.tinkingli.com/?p=76)  
-[ET框架如何用MAC开发](http://www.tinkingli.com/?p=147)  
-[ET的动态添加事件和触发组件](http://www.tinkingli.com/?p=145)  
 
-商业项目:  
-1. [千古风流](https://www.qiangu.com/)  
-2. [魔法点点2](https://www.taptap.com/app/227804)  
-3. [养不大](https://www.taptap.com/app/71064)  
-4. 天天躲猫猫2（ios2019春节下载排行19）  
-5. [牛虎棋牌](https://gitee.com/ECPS_admin/PlanB)  
-6. [五星麻将](https://github.com/wufanjoin/fivestar)  
 
 群友demo：  
 1. [斗地主（客户端服务端）](https://github.com/Viagi/LandlordsCore)  
 2. [背包系统](https://gitee.com/ECPS_admin/planc)  
 3. [移动端渲染技术demo](https://github.com/Acgmart/Sekia_TechDemo)  
-
+4. [球球大作战(ET7.2)](https://github.com/FlameskyDexive/Legends-Of-Heroes)
 
 
 视频教程：  
@@ -162,7 +253,5 @@ __讨论QQ群 : 474643097__
 [xasset](https://github.com/xasset/xasset) 致力于为 Unity 项目提供了一套 精简稳健 的资源管理环境  
 [QFramework](https://github.com/liangxiegame/QFramework) Your first K.I.S.S Unity3d Framework  
 [ET UI框架](https://github.com/zzjfengqing/ET-EUI) 字母哥实现的UI框架，ET风格，各种事件分发  
-[ETCsharpToXLua](https://github.com/zzjfengqing/ETCsharpToXLua) 字母哥使用csharp.lua实现的ET客户端热更新  
-[et-6-with-ilruntime](https://www.lfzxb.top/et-6-with-ilruntime) 烟雨使用ILRuntime实现的ET客户端热更新  
 [Luban](https://github.com/focus-creative-games/luban) 适用于大中型项目的游戏配置解决方案  
-
+[ET-YIUI](https://github.com/LiShengYang-yiyi/YIUI/tree/YIUI-ET7.2) ETUI框架 

@@ -1,7 +1,6 @@
-﻿using System.IO;
 using System.Linq;
 using UnityEditor;
-using UnityEditor.Build;
+using UnityEditor.Build.Reporting;
 using UnityEngine;
 
 namespace ET
@@ -12,43 +11,64 @@ namespace ET
 
         public static string BuildFolder = "../Release/{0}/StreamingAssets/";
 
-        
-#if ENABLE_CODES
-        [MenuItem("ET/ChangeDefine/Remove ENABLE_CODES")]
-#else
-        [MenuItem("ET/ChangeDefine/Add ENABLE_CODES")]
-#endif
-        public static void EnableCodes()
+        [InitializeOnLoadMethod]
+        public static void ReGenerateProjectFiles()
         {
+            Unity.CodeEditor.CodeEditor.CurrentEditor.SyncAll();
+        }
+
+#if ENABLE_VIEW
+        [MenuItem("ET/ChangeDefine/Remove ENABLE_VIEW", false, ETMenuItemPriority.ChangeDefine)]
+        public static void RemoveEnableView()
+        {
+            EnableDefineSymbols("ENABLE_VIEW", false);
+        }
+#else
+        [MenuItem("ET/ChangeDefine/Add ENABLE_VIEW", false, ETMenuItemPriority.ChangeDefine)]
+        public static void AddEnableView()
+        {
+            EnableDefineSymbols("ENABLE_VIEW", true);
+        }
+#endif
+        public static void EnableDefineSymbols(string symbols, bool enable)
+        {
+            Debug.Log($"EnableDefineSymbols {symbols} {enable}");
             string defines = PlayerSettings.GetScriptingDefineSymbolsForGroup(EditorUserBuildSettings.selectedBuildTargetGroup);
             var ss = defines.Split(';').ToList();
-#if ENABLE_CODES
-            if (!ss.Contains("ENABLE_CODES"))
+            if (enable)
             {
-                return;
+                if (ss.Contains(symbols))
+                {
+                    return;
+                }
+
+                ss.Add(symbols);
             }
-            ss.Remove("ENABLE_CODES");
-#else
-            if (ss.Contains("ENABLE_CODES"))
+            else
             {
-                return;
+                if (!ss.Contains(symbols))
+                {
+                    return;
+                }
+
+                ss.Remove(symbols);
             }
-            ss.Add("ENABLE_CODES");
-#endif
+
+            Debug.Log($"EnableDefineSymbols {symbols} {enable}");
             defines = string.Join(";", ss);
             PlayerSettings.SetScriptingDefineSymbolsForGroup(EditorUserBuildSettings.selectedBuildTargetGroup, defines);
             AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
         }
-        
 
-        public static void Build(PlatformType type, BuildAssetBundleOptions buildAssetBundleOptions, BuildOptions buildOptions, bool isBuildExe, bool isContainAB, bool clearFolder)
+        public static void Build(PlatformType type, BuildOptions buildOptions)
         {
             BuildTarget buildTarget = BuildTarget.StandaloneWindows;
             string programName = "ET";
             string exeName = programName;
             switch (type)
             {
-                case PlatformType.PC:
+                case PlatformType.Windows:
                     buildTarget = BuildTarget.StandaloneWindows64;
                     exeName += ".exe";
                     break;
@@ -62,47 +82,25 @@ namespace ET
                 case PlatformType.MacOS:
                     buildTarget = BuildTarget.StandaloneOSX;
                     break;
+                case PlatformType.Linux:
+                    buildTarget = BuildTarget.StandaloneLinux64;
+                    break;
             }
 
-            string fold = string.Format(BuildFolder, type);
+            AssetDatabase.Refresh();
 
-            if (clearFolder && Directory.Exists(fold))
+            Debug.Log("start build exe");
+
+            string[] levels = { "Assets/Scenes/Init.unity" };
+            BuildReport report = BuildPipeline.BuildPlayer(levels, $"{relativeDirPrefix}/{exeName}", buildTarget, buildOptions);
+            if (report.summary.result != BuildResult.Succeeded)
             {
-                Directory.Delete(fold, true);
-            }
-            Directory.CreateDirectory(fold);
-
-            UnityEngine.Debug.Log("start build assetbundle");
-            BuildPipeline.BuildAssetBundles(fold, buildAssetBundleOptions, buildTarget);
-
-            UnityEngine.Debug.Log("finish build assetbundle");
-
-            if (isContainAB)
-            {
-                FileHelper.CleanDirectory("Assets/StreamingAssets/");
-                FileHelper.CopyDirectory(fold, "Assets/StreamingAssets/");
+                Debug.Log($"BuildResult:{report.summary.result}");
+                return;
             }
 
-            if (isBuildExe)
-            {
-                AssetDatabase.Refresh();
-                string[] levels = {
-                    "Assets/Scenes/Init.unity",
-                };
-                UnityEngine.Debug.Log("start build exe");
-                BuildPipeline.BuildPlayer(levels, $"{relativeDirPrefix}/{exeName}", buildTarget, buildOptions);
-                UnityEngine.Debug.Log("finish build exe");
-            }
-            else
-            {
-                if (isContainAB && type == PlatformType.PC)
-                {
-                    string targetPath = Path.Combine(relativeDirPrefix, $"{programName}_Data/StreamingAssets/");
-                    FileHelper.CleanDirectory(targetPath);
-                    Debug.Log($"src dir: {fold}    target: {targetPath}");
-                    FileHelper.CopyDirectory(fold, targetPath);
-                }
-            }
+            Debug.Log("finish build exe");
+            EditorUtility.OpenWithDefaultApp(relativeDirPrefix);
         }
     }
 }

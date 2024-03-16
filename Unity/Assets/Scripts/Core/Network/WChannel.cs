@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Net;
 using System.Net.WebSockets;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace ET
 {
@@ -14,45 +16,41 @@ namespace ET
 
         private readonly WebSocket webSocket;
 
-        private readonly Queue<byte[]> queue = new Queue<byte[]>();
+        private readonly Queue<MemoryBuffer> queue = new();
 
         private bool isSending;
 
         private bool isConnected;
-
-        private readonly MemoryStream recvStream;
-
-        private CancellationTokenSource cancellationTokenSource = new CancellationTokenSource();
-
+        
+        private CancellationTokenSource cancellationTokenSource = new();
+        
         public WChannel(long id, HttpListenerWebSocketContext webSocketContext, WService service)
         {
-            this.Id = id;
             this.Service = service;
+            this.Id = id;
             this.ChannelType = ChannelType.Accept;
             this.WebSocketContext = webSocketContext;
             this.webSocket = webSocketContext.WebSocket;
-            this.recvStream = new MemoryStream(ushort.MaxValue);
 
             isConnected = true;
             
-            this.Service.ThreadSynchronizationContext.PostNext(()=>
+            this.Service.ThreadSynchronizationContext.Post(()=>
             {
                 this.StartRecv().Coroutine();
                 this.StartSend().Coroutine();
             });
         }
 
-        public WChannel(long id, WebSocket webSocket, string connectUrl, WService service)
+        public WChannel(long id, WebSocket webSocket, IPEndPoint ipEndPoint, WService service)
         {
-            this.Id = id;
             this.Service = service;
+            this.Id = id;
             this.ChannelType = ChannelType.Connect;
             this.webSocket = webSocket;
-            this.recvStream = new MemoryStream(ushort.MaxValue);
 
             isConnected = false;
             
-            this.Service.ThreadSynchronizationContext.PostNext(()=>this.ConnectAsync(connectUrl).Coroutine());
+            this.Service.ThreadSynchronizationContext.Post(()=>this.ConnectAsync($"ws://{ipEndPoint}").Coroutine());
         }
 
         public override void Dispose()
@@ -69,7 +67,7 @@ namespace ET
             this.webSocket.Dispose();
         }
 
-        public async ETTask ConnectAsync(string url)
+        private async ETTask ConnectAsync(string url)
         {
             try
             {
@@ -86,11 +84,9 @@ namespace ET
             }
         }
 
-        public void Send(MemoryStream stream)
+        public void Send(MemoryBuffer memoryBuffer)
         {
-            byte[] bytes = new byte[stream.Length - stream.Position];
-            Array.Copy(stream.GetBuffer(), stream.Position, bytes, 0, bytes.Length);
-            this.queue.Enqueue(bytes);
+            this.queue.Enqueue(memoryBuffer);
 
             if (this.isConnected)
             {
@@ -98,7 +94,7 @@ namespace ET
             }
         }
 
-        public async ETTask StartSend()
+        private async ETTask StartSend()
         {
             if (this.IsDisposed)
             {
@@ -122,14 +118,22 @@ namespace ET
                         return;
                     }
 
-                    byte[] bytes = this.queue.Dequeue();
+                    MemoryBuffer stream = this.queue.Dequeue();
+            
                     try
                     {
-                        await this.webSocket.SendAsync(new ArraySegment<byte>(bytes, 0, bytes.Length), WebSocketMessageType.Binary, true, cancellationTokenSource.Token);
+                        await this.webSocket.SendAsync(stream.GetMemory(), WebSocketMessageType.Binary, true, cancellationTokenSource.Token);
+                        
+                        this.Service.Recycle(stream);
+                        
                         if (this.IsDisposed)
                         {
                             return;
                         }
+                    }
+                    catch (TaskCanceledException e)
+                    {
+                        Log.Warning(e.ToString());
                     }
                     catch (Exception e)
                     {
@@ -145,7 +149,7 @@ namespace ET
             }
         }
 
-        private byte[] cache = new byte[ushort.MaxValue];
+        private readonly byte[] cache = new byte[ushort.MaxValue];
 
         public async ETTask StartRecv()
         {
@@ -187,11 +191,12 @@ namespace ET
                         this.OnError(ErrorCore.ERR_WebsocketMessageTooBig);
                         return;
                     }
-                    
-                    this.recvStream.SetLength(receiveCount);
-                    this.recvStream.Seek(2, SeekOrigin.Begin);
-                    Array.Copy(this.cache, 0, this.recvStream.GetBuffer(), 0, receiveCount);
-                    this.OnRead(this.recvStream);
+
+                    MemoryBuffer memoryBuffer = this.Service.Fetch(receiveCount);
+                    memoryBuffer.SetLength(receiveCount);
+                    memoryBuffer.Seek(0, SeekOrigin.Begin);
+                    Array.Copy(this.cache, 0, memoryBuffer.GetBuffer(), 0, receiveCount);
+                    this.OnRead(memoryBuffer);
                 }
             }
             catch (Exception e)
@@ -201,30 +206,28 @@ namespace ET
             }
         }
         
-        private void OnRead(MemoryStream memoryStream)
+        private void OnRead(MemoryBuffer memoryStream)
         {
             try
             {
-                long channelId = this.Id;
-                this.Service.OnRead(channelId, memoryStream);
+                this.Service.ReadCallback(this.Id, memoryStream);
             }
             catch (Exception e)
             {
-                Log.Error($"{this.RemoteAddress} {memoryStream.Length} {e}");
-                // 出现任何消息解析异常都要断开Session，防止客户端伪造消息
+                Log.Error(e);
                 this.OnError(ErrorCore.ERR_PacketParserError);
             }
         }
         
         private void OnError(int error)
         {
-            Log.Debug($"WChannel error: {error} {this.RemoteAddress}");
+            Log.Info($"WChannel error: {error} {this.RemoteAddress}");
 			
             long channelId = this.Id;
 			
             this.Service.Remove(channelId);
 			
-            this.Service.OnError(channelId, error);
+            this.Service.ErrorCallback(channelId, error);
         }
     }
 }

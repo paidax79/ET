@@ -14,11 +14,11 @@ namespace ET
 		private readonly CircularBuffer buffer;
 		private int packetSize;
 		private ParserState state;
-		public AService service;
+		private readonly AService service;
 		private readonly byte[] cache = new byte[8];
 		public const int InnerPacketSizeLength = 4;
 		public const int OuterPacketSizeLength = 2;
-		public MemoryStream MemoryStream;
+		public MemoryBuffer MemoryBuffer;
 
 		public PacketParser(CircularBuffer buffer, AService service)
 		{
@@ -26,7 +26,7 @@ namespace ET
 			this.service = service;
 		}
 
-		public bool Parse()
+		public bool Parse(out MemoryBuffer memoryBuffer)
 		{
 			while (true)
 			{
@@ -38,6 +38,7 @@ namespace ET
 						{
 							if (this.buffer.Length < InnerPacketSizeLength)
 							{
+								memoryBuffer = null;
 								return false;
 							}
 
@@ -53,6 +54,7 @@ namespace ET
 						{
 							if (this.buffer.Length < OuterPacketSizeLength)
 							{
+								memoryBuffer = null;
 								return false;
 							}
 
@@ -72,22 +74,15 @@ namespace ET
 					{
 						if (this.buffer.Length < this.packetSize)
 						{
+							memoryBuffer = null;
 							return false;
 						}
 
-						MemoryStream memoryStream = new MemoryStream(this.packetSize);
-						this.buffer.Read(memoryStream, this.packetSize);
+						memoryBuffer = this.service.Fetch(this.packetSize);
+						this.buffer.Read(memoryBuffer, this.packetSize);
 						//memoryStream.SetLength(this.packetSize - Packet.MessageIndex);
-						this.MemoryStream = memoryStream;
 
-						if (this.service.ServiceType == ServiceType.Inner)
-						{
-							memoryStream.Seek(Packet.MessageIndex, SeekOrigin.Begin);
-						}
-						else
-						{
-							memoryStream.Seek(Packet.OpcodeLength, SeekOrigin.Begin);
-						}
+						memoryBuffer.Seek(0, SeekOrigin.Begin);
 
 						this.state = ParserState.PacketSize;
 						return true;

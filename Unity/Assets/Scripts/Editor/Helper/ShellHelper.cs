@@ -8,10 +8,10 @@ namespace ET
     {
         public static void Run(string cmd, string workDirectory, List<string> environmentVars = null)
         {
-            Process process = new();
+            System.Diagnostics.Process process = new();
             try
             {
-#if UNITY_EDITOR_OSX
+#if UNITY_EDITOR_OSX || UNITY_EDITOR_LINUX
                 string app = "bash";
                 string splitChar = ":";
                 string arguments = "-c";

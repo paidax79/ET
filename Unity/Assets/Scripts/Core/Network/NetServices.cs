@@ -1,63 +1,38 @@
-﻿using System;
+﻿using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Threading;
 
 namespace ET
 {
-    public class NetServices: Singleton<NetServices>
+    public enum NetworkProtocol
     {
-        // 一个进程最多1024个Service
-        private readonly AService[] Services = new AService[1024];
+        TCP,
+        KCP,
+        Websocket,
+        UDP,
+    }
 
-        private int index;
+    public class NetServices: Singleton<NetServices>, ISingletonAwake
+    {
+        private long idGenerator;
         
-        private readonly Queue<int> queue = new Queue<int>();
-
-        public AService Get(int id)
+        public void Awake()
         {
-            return this.Services[id];
         }
 
-        public void Add(AService aService)
+        // 这个因为是NetClientComponent中使用，不会与Accept冲突
+        public uint CreateConnectChannelId()
         {
-            for (int j = 0; j < 1024; ++j)
-            {
-                if (++this.index == 1024)
-                {
-                    this.index = 0;
-                }
-
-                if (this.Services[this.index] != null)
-                {
-                    continue;
-                }
-
-                aService.Id = this.index;
-                this.Services[aService.Id] = aService;
-                this.queue.Enqueue(aService.Id);
-                return;
-            }
-            throw new Exception("not found service id");
+            return RandomGenerator.RandUInt32();
         }
 
-        public void Remove(AService aService)
-        {
-            this.Services[aService.Id] = null;
-        }
+        // 防止与内网进程号的ChannelId冲突，所以设置为一个大的随机数
+        private int acceptIdGenerator = int.MinValue;
 
-        public void Update()
+        public uint CreateAcceptChannelId()
         {
-            int count = this.queue.Count;
-            while (count-- > 0)
-            {
-                int serviceId = this.queue.Dequeue();
-                AService service = this.Services[serviceId];
-                if (service == null)
-                {
-                    continue;
-                }
-                this.queue.Enqueue(serviceId);
-                service.Update();
-            }
+            return (uint)Interlocked.Add(ref this.acceptIdGenerator, 1);
         }
+        
     }
 }

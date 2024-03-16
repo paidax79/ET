@@ -2,10 +2,18 @@
     "name": "Unity.Editor",
     "rootNamespace": "",
     "references": [
-        "Unity.Mono",
         "Unity.ThirdParty",
         "Unity.Core",
-        "Unity.Codes"
+        "Unity.Loader",
+        "HybridCLR.Runtime",
+        "HybridCLR.Editor",
+        "YooAsset",
+        "Unity.Mathematics",
+        "Unity.Model",
+        "Unity.ModelView",
+        "Unity.Hotfix",
+        "Unity.HotfixView",
+        "ToolbarExtension.Editor"
     ],
     "includePlatforms": [
         "Editor"

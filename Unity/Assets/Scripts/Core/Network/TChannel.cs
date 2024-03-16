@@ -12,11 +12,11 @@ namespace ET
 	{
 		private readonly TService Service;
 		private Socket socket;
-		private SocketAsyncEventArgs innArgs = new SocketAsyncEventArgs();
-		private SocketAsyncEventArgs outArgs = new SocketAsyncEventArgs();
+		private SocketAsyncEventArgs innArgs = new();
+		private SocketAsyncEventArgs outArgs = new();
 
-		private readonly CircularBuffer recvBuffer = new CircularBuffer();
-		private readonly CircularBuffer sendBuffer = new CircularBuffer();
+		private readonly CircularBuffer recvBuffer = new();
+		private readonly CircularBuffer sendBuffer = new();
 
 		private bool isSending;
 
@@ -25,35 +25,17 @@ namespace ET
 		private readonly PacketParser parser;
 
 		private readonly byte[] sendCache = new byte[Packet.OpcodeLength + Packet.ActorIdLength];
-
+		
 		private void OnComplete(object sender, SocketAsyncEventArgs e)
 		{
-			switch (e.LastOperation)
-			{
-				case SocketAsyncOperation.Connect:
-					this.Service.ThreadSynchronizationContext.Post(()=>OnConnectComplete(e));
-					break;
-				case SocketAsyncOperation.Receive:
-					this.Service.ThreadSynchronizationContext.Post(()=>OnRecvComplete(e));
-					break;
-				case SocketAsyncOperation.Send:
-					this.Service.ThreadSynchronizationContext.Post(()=>OnSendComplete(e));
-					break;
-				case SocketAsyncOperation.Disconnect:
-					this.Service.ThreadSynchronizationContext.Post(()=>OnDisconnectComplete(e));
-					break;
-				default:
-					throw new Exception($"socket error: {e.LastOperation}");
-			}
+			this.Service.Queue.Enqueue(new TArgs() {ChannelId = this.Id, SocketAsyncEventArgs = e});
 		}
-
-#region 网络线程
 		
 		public TChannel(long id, IPEndPoint ipEndPoint, TService service)
 		{
+			this.Service = service;
 			this.ChannelType = ChannelType.Connect;
 			this.Id = id;
-			this.Service = service;
 			this.socket = new Socket(ipEndPoint.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
 			this.socket.NoDelay = true;
 			this.parser = new PacketParser(this.recvBuffer, this.Service);
@@ -63,15 +45,15 @@ namespace ET
 			this.RemoteAddress = ipEndPoint;
 			this.isConnected = false;
 			this.isSending = false;
-
-			this.Service.ThreadSynchronizationContext.PostNext(this.ConnectAsync);
+			
+			this.Service.Queue.Enqueue(new TArgs(){Op = TcpOp.Connect,ChannelId = this.Id});
 		}
 		
 		public TChannel(long id, Socket socket, TService service)
 		{
+			this.Service = service;
 			this.ChannelType = ChannelType.Accept;
 			this.Id = id;
-			this.Service = service;
 			this.socket = socket;
 			this.socket.NoDelay = true;
 			this.parser = new PacketParser(this.recvBuffer, this.Service);
@@ -82,12 +64,8 @@ namespace ET
 			this.isConnected = true;
 			this.isSending = false;
 			
-			// 下一帧再开始读写
-			this.Service.ThreadSynchronizationContext.PostNext(() =>
-			{
-				this.StartRecv();
-				this.StartSend();
-			});
+			this.Service.Queue.Enqueue(new TArgs() { Op = TcpOp.StartSend, ChannelId = this.Id});
+			this.Service.Queue.Enqueue(new TArgs() { Op = TcpOp.StartRecv, ChannelId = this.Id});
 		}
 		
 		
@@ -99,7 +77,7 @@ namespace ET
 				return;
 			}
 
-			Log.Info($"channel dispose: {this.Id} {this.RemoteAddress}");
+			Log.Info($"channel dispose: {this.Id} {this.RemoteAddress} {this.Error}");
 			
 			long id = this.Id;
 			this.Id = 0;
@@ -112,13 +90,13 @@ namespace ET
 			this.socket = null;
 		}
 
-		public void Send(long actorId, MemoryStream stream)
+		public void Send(MemoryBuffer stream)
 		{
 			if (this.IsDisposed)
 			{
 				throw new Exception("TChannel已经被Dispose, 不能发送消息");
 			}
-
+			
 			switch (this.Service.ServiceType)
 			{
 				case ServiceType.Inner:
@@ -131,34 +109,27 @@ namespace ET
 
 					this.sendCache.WriteTo(0, messageSize);
 					this.sendBuffer.Write(this.sendCache, 0, PacketParser.InnerPacketSizeLength);
-
-					// actorId
-					stream.GetBuffer().WriteTo(0, actorId);
-					this.sendBuffer.Write(stream.GetBuffer(), (int)stream.Position, (int)(stream.Length - stream.Position));
 					break;
 				}
 				case ServiceType.Outer:
 				{
-					stream.Seek(Packet.ActorIdLength, SeekOrigin.Begin); // 外网不需要actorId
 					ushort messageSize = (ushort) (stream.Length - stream.Position);
-
 					this.sendCache.WriteTo(0, messageSize);
 					this.sendBuffer.Write(this.sendCache, 0, PacketParser.OuterPacketSizeLength);
-					
-					this.sendBuffer.Write(stream.GetBuffer(), (int)stream.Position, (int)(stream.Length - stream.Position));
 					break;
 				}
 			}
 			
-
+			this.sendBuffer.Write(stream.GetBuffer(), (int)stream.Position, (int)(stream.Length - stream.Position));
 			if (!this.isSending)
 			{
-				//this.StartSend();
-				this.Service.NeedStartSend.Add(this.Id);
+				this.Service.Queue.Enqueue(new TArgs() { Op = TcpOp.StartSend, ChannelId = this.Id});
 			}
+			
+			this.Service.Recycle(stream);
 		}
 
-		private void ConnectAsync()
+		public void ConnectAsync()
 		{
 			this.outArgs.RemoteEndPoint = this.RemoteAddress;
 			if (this.socket.ConnectAsync(this.outArgs))
@@ -168,13 +139,12 @@ namespace ET
 			OnConnectComplete(this.outArgs);
 		}
 
-		private void OnConnectComplete(object o)
+		public void OnConnectComplete(SocketAsyncEventArgs e)
 		{
 			if (this.socket == null)
 			{
 				return;
 			}
-			SocketAsyncEventArgs e = (SocketAsyncEventArgs) o;
 			
 			if (e.SocketError != SocketError.Success)
 			{
@@ -184,17 +154,17 @@ namespace ET
 
 			e.RemoteEndPoint = null;
 			this.isConnected = true;
-			this.StartRecv();
-			this.StartSend();
+			
+			this.Service.Queue.Enqueue(new TArgs() { Op = TcpOp.StartSend, ChannelId = this.Id});
+			this.Service.Queue.Enqueue(new TArgs() { Op = TcpOp.StartRecv, ChannelId = this.Id});
 		}
 
-		private void OnDisconnectComplete(object o)
+		public void OnDisconnectComplete(SocketAsyncEventArgs e)
 		{
-			SocketAsyncEventArgs e = (SocketAsyncEventArgs)o;
 			this.OnError((int)e.SocketError);
 		}
 
-		private void StartRecv()
+		public void StartRecv()
 		{
 			while (true)
 			{
@@ -223,7 +193,7 @@ namespace ET
 			}
 		}
 
-		private void OnRecvComplete(object o)
+		public void OnRecvComplete(SocketAsyncEventArgs o)
 		{
 			this.HandleRecv(o);
 			
@@ -231,17 +201,16 @@ namespace ET
 			{
 				return;
 			}
-			this.StartRecv();
+			
+			this.Service.Queue.Enqueue(new TArgs() { Op = TcpOp.StartRecv, ChannelId = this.Id});
 		}
 
-		private void HandleRecv(object o)
+		private void HandleRecv(SocketAsyncEventArgs e)
 		{
 			if (this.socket == null)
 			{
 				return;
 			}
-			SocketAsyncEventArgs e = (SocketAsyncEventArgs) o;
-
 			if (e.SocketError != SocketError.Success)
 			{
 				this.OnError((int)e.SocketError);
@@ -271,13 +240,17 @@ namespace ET
 				}
 				try
 				{
-					bool ret = this.parser.Parse();
+					if (this.recvBuffer.Length == 0)
+					{
+						break;
+					}
+					bool ret = this.parser.Parse(out MemoryBuffer memoryBuffer);
 					if (!ret)
 					{
 						break;
 					}
 					
-					this.OnRead(this.parser.MemoryStream);
+					this.OnRead(memoryBuffer);
 				}
 				catch (Exception ee)
 				{
@@ -288,12 +261,7 @@ namespace ET
 			}
 		}
 
-		public void Update()
-		{
-			this.StartSend();
-		}
-
-		private void StartSend()
+		public void StartSend()
 		{
 			if(!this.isConnected)
 			{
@@ -329,7 +297,6 @@ namespace ET
 					{
 						sendSize = (int)this.sendBuffer.Length;
 					}
-					
 					this.outArgs.SetBuffer(this.sendBuffer.First, this.sendBuffer.FirstIndex, sendSize);
 					
 					if (this.socket.SendAsync(this.outArgs))
@@ -346,23 +313,21 @@ namespace ET
 			}
 		}
 
-		private void OnSendComplete(object o)
+		public void OnSendComplete(SocketAsyncEventArgs o)
 		{
 			HandleSend(o);
 			
 			this.isSending = false;
 			
-			this.StartSend();
+			this.Service.Queue.Enqueue(new TArgs() { Op = TcpOp.StartSend, ChannelId = this.Id});
 		}
 
-		private void HandleSend(object o)
+		private void HandleSend(SocketAsyncEventArgs e)
 		{
 			if (this.socket == null)
 			{
 				return;
 			}
-			
-			SocketAsyncEventArgs e = (SocketAsyncEventArgs) o;
 
 			if (e.SocketError != SocketError.Success)
 			{
@@ -384,17 +349,15 @@ namespace ET
 			}
 		}
 		
-		private void OnRead(MemoryStream memoryStream)
+		private void OnRead(MemoryBuffer memoryStream)
 		{
 			try
 			{
-				long channelId = this.Id;
-				this.Service.OnRead(channelId, memoryStream);
+				this.Service.ReadCallback(this.Id, memoryStream);
 			}
 			catch (Exception e)
 			{
-				Log.Error($"{this.RemoteAddress} {memoryStream.Length} {e}");
-				// 出现任何消息解析异常都要断开Session，防止客户端伪造消息
+				Log.Error(e);
 				this.OnError(ErrorCore.ERR_PacketParserError);
 			}
 		}
@@ -407,10 +370,7 @@ namespace ET
 			
 			this.Service.Remove(channelId);
 			
-			this.Service.OnError(channelId, error);
+			this.Service.ErrorCallback(channelId, error);
 		}
-
-#endregion
-
 	}
 }

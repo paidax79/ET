@@ -1,10 +1,13 @@
 ﻿namespace ET
 {
+    [UniqueId(100000, 500000)]
     public static class ErrorCore
     {
         public const int ERR_MyErrorCode = 110000;
         
         public const int ERR_KcpConnectTimeout = 100205;
+        public const int ERR_KcpAcceptTimeout = 100206;
+        public const int ERR_KcpReadWriteTimeout = 100207;
         public const int ERR_PeerDisconnect = 100208;
         public const int ERR_SocketCantSend = 100209;
         public const int ERR_SocketError = 100210;
@@ -24,7 +27,7 @@
         public const int ERR_KcpSplitError = 100231;
         public const int ERR_KcpSplitCountError = 100232;
 
-        public const int ERR_ActorLocationSenderTimeout = 110004;
+        public const int ERR_MessageLocationSenderTimeout = 110004;
         public const int ERR_PacketParserError = 110005;
         public const int ERR_KcpChannelAcceptTimeout = 110206;
         public const int ERR_KcpRemoteDisconnect = 110207;
@@ -36,7 +39,7 @@
         public const int ERR_SessionSendOrRecvTimeout = 110311;
         public const int ERR_OuterSessionRecvInnerMessage = 110312;
         public const int ERR_NotFoundActor = 110313;
-        public const int ERR_ActorTimeout = 110315;
+        public const int ERR_MessageTimeout = 110315;
         public const int ERR_UnverifiedSessionSendMessage = 110316;
         public const int ERR_ActorLocationSenderTimeout2 = 110317;
         public const int ERR_ActorLocationSenderTimeout3 = 110318;
@@ -45,7 +48,7 @@
         
         public const int ERR_KcpRouterTimeout = 110401;
         public const int ERR_KcpRouterTooManyPackets = 110402;
-        public const int ERR_KcpRouterSame = 110402;
+        public const int ERR_KcpRouterSame = 110403;
         public const int ERR_KcpRouterConnectFail = 110404;
         public const int ERR_KcpRouterRouterSyncCountTooMuchTimes = 110405;
         public const int ERR_KcpRouterSyncCountTooMuchTimes = 110406;
@@ -59,6 +62,7 @@
         public const int ERR_Exception = 200000;
 
         public const int ERR_Cancel = 200001;
+        public const int ERR_Timeout = 200002;
 
         public static bool IsRpcNeedThrowException(int error)
         {

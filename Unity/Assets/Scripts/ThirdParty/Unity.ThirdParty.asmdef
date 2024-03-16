@@ -1,7 +1,9 @@
 {
     "name": "Unity.ThirdParty",
-    "rootNamespace": "",
-    "references": [],
+    "rootNamespace": "ET",
+    "references": [
+        "MemoryPack"
+    ],
     "includePlatforms": [],
     "excludePlatforms": [],
     "allowUnsafeCode": true,
@@ -10,5 +12,5 @@
     "autoReferenced": true,
     "defineConstraints": [],
     "versionDefines": [],
-    "noEngineReferences": false
+    "noEngineReferences": true
 }

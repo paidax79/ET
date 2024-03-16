@@ -1,146 +1,138 @@
-﻿using System;
+﻿using System.IO;
+using System.Text.RegularExpressions;
+using System.Xml;
 using UnityEditor;
 using UnityEngine;
-using System.Xml;
-using System.IO;
-using System.Text;
 
 namespace ET
 {
-    public class OnGenerateCSProjectProcessor : AssetPostprocessor
+    public class OnGenerateCSProjectProcessor: AssetPostprocessor
     {
+        /// <summary>
+        /// 对生成的C#项目文件(.csproj)进行处理
+        /// 文档:https://learn.microsoft.com/zh-cn/visualstudio/gamedev/unity/extensibility/customize-project-files-created-by-vstu#%E6%A6%82%E8%A7%88
+        /// </summary>
         public static string OnGeneratedCSProject(string path, string content)
         {
-            if (Define.EnableCodes)
+            GlobalConfig globalConfig = Resources.Load<GlobalConfig>("GlobalConfig");
+            // 判空原因:初次打开工程时会加载失败, 因为此时Unity的资源数据库(AssetDatabase)还未完成初始化
+            BuildType buildType = globalConfig != null? globalConfig.BuildType : BuildType.Release;
+            if (buildType == BuildType.Release)
             {
-                return content;
-            }
-
-            if (path.EndsWith("Unity.Hotfix.csproj"))
-            {
-                content =  content.Replace("<Compile Include=\"Assets\\Scripts\\Empty\\Hotfix\\Empty.cs\" />", string.Empty);
-                content =  content.Replace("<None Include=\"Assets\\Scripts\\Empty\\Hotfix\\Unity.Hotfix.asmdef\" />", string.Empty);
-            }
-          
-            if (path.EndsWith("Unity.HotfixView.csproj"))
-            {
-                content =  content.Replace("<Compile Include=\"Assets\\Scripts\\Empty\\HotfixView\\Empty.cs\" />", string.Empty);
-                content =  content.Replace("<None Include=\"Assets\\Scripts\\Empty\\HotfixView\\Unity.HotfixView.asmdef\" />", string.Empty);
-            }
-          
-            if (path.EndsWith("Unity.Model.csproj"))
-            {
-                content =  content.Replace("<Compile Include=\"Assets\\Scripts\\Empty\\Model\\Empty.cs\" />", string.Empty);
-                content =  content.Replace("<None Include=\"Assets\\Scripts\\Empty\\Model\\Unity.Model.asmdef\" />", string.Empty);
-            }
-          
-            if (path.EndsWith("Unity.ModelView.csproj"))
-            {
-                content =  content.Replace("<Compile Include=\"Assets\\Scripts\\Empty\\ModelView\\Empty.cs\" />", string.Empty);
-                content =  content.Replace("<None Include=\"Assets\\Scripts\\Empty\\ModelView\\Unity.ModelView.asmdef\" />", string.Empty);
-            }
-          
-            if (path.EndsWith("Unity.Hotfix.csproj"))
-            {
-                return GenerateCustomProject(path, content, 
-                    @"Assets\Scripts\Codes\Hotfix\Client\**\*.cs Client\%(RecursiveDir)%(FileName)%(Extension)", 
-                    @"Assets\Scripts\Codes\Hotfix\Share\**\*.cs Share\%(RecursiveDir)%(FileName)%(Extension)",
-                    @"Assets\Scripts\Codes\Hotfix\Server\**\*.cs Server\%(RecursiveDir)%(FileName)%(Extension)",
-                    @"Assets\Scripts\Codes\Plugins\*\Hotfix\Client\**\*.cs Client\Plugins\$([System.String]::new(%(RecursiveDir)).Replace('Hotfix\Client',''))%(FileName)%(Extension)",
-                    @"Assets\Scripts\Codes\Plugins\*\Hotfix\Share\**\*.cs Share\Plugins\$([System.String]::new(%(RecursiveDir)).Replace('Hotfix\Share',''))%(FileName)%(Extension)",
-                    @"Assets\Scripts\Codes\Plugins\*\Hotfix\Server\**\*.cs Server\Plugins\$([System.String]::new(%(RecursiveDir)).Replace('Hotfix\Server',''))%(FileName)%(Extension)"
-                    );
-            }
-
-            if (path.EndsWith("Unity.HotfixView.csproj"))
-            {
-                return GenerateCustomProject(path, content, 
-                    @"Assets\Scripts\Codes\HotfixView\Client\**\*.cs Client\%(RecursiveDir)%(FileName)%(Extension)", 
-                    @"Assets\Scripts\Codes\HotfixView\Share\**\*.cs Share\%(RecursiveDir)%(FileName)%(Extension)",
-                    @"Assets\Scripts\Codes\Plugins\*\HotfixView\Client\**\*.cs Client\Plugins\$([System.String]::new(%(RecursiveDir)).Replace('HotfixView\Client',''))%(FileName)%(Extension)"
-                    ); 
-            }
-
-            if (path.EndsWith("Unity.Model.csproj"))
-            {
-                return GenerateCustomProject(path, content,
-                    @"Assets\Scripts\Codes\Model\Server\**\*.cs Server\%(RecursiveDir)%(FileName)%(Extension)",
-                    @"Assets\Scripts\Codes\Model\Client\**\*.cs Client\%(RecursiveDir)%(FileName)%(Extension)",
-                    @"Assets\Scripts\Codes\Model\Share\**\*.cs Share\%(RecursiveDir)%(FileName)%(Extension)",
-                    @"Assets\Scripts\Codes\Model\Generate\Server\**\*.cs Generate\%(RecursiveDir)%(FileName)%(Extension)",
-                    @"Assets\Scripts\Codes\Plugins\*\Model\Client\**\*.cs Client\Plugins\$([System.String]::new(%(RecursiveDir)).Replace('Model\Client',''))%(FileName)%(Extension)",
-                    @"Assets\Scripts\Codes\Plugins\*\Model\Share\**\*.cs Share\Plugins\$([System.String]::new(%(RecursiveDir)).Replace('Model\Share',''))%(FileName)%(Extension)",
-                    @"Assets\Scripts\Codes\Plugins\*\Model\Server\**\*.cs Server\Plugins\$([System.String]::new(%(RecursiveDir)).Replace('Model\Server',''))%(FileName)%(Extension)"
-                    );
-            }
-
-            if (path.EndsWith("Unity.ModelView.csproj"))
-            {
-                return GenerateCustomProject(path, content,
-                    @"Assets\Scripts\Codes\ModelView\Client\**\*.cs Client\%(RecursiveDir)%(FileName)%(Extension)",
-                    @"Assets\Scripts\Codes\ModelView\Share\**\*.cs Share\%(RecursiveDir)%(FileName)%(Extension)",
-                    @"Assets\Scripts\Codes\Plugins\*\ModelView\Client\**\*.cs Share\Plugins\$([System.String]::new(%(RecursiveDir)).Replace('ModelView\Client',''))%(FileName)%(Extension)"
-                    );
+                content = content.Replace("<Optimize>false</Optimize>", "<Optimize>true</Optimize>");
+                content = content.Replace(";DEBUG;", ";");
             }
 
             if (path.EndsWith("Unity.Core.csproj"))
             {
-                return GenerateCustomProject(path, content);
+                return GenerateCustomProject(content);
             }
+
+            if (path.EndsWith("Unity.Model.csproj") || path.EndsWith("Unity.Hotfix.csproj"))
+            {
+                return AddCopyAfterBuild(GenerateCustomProject(content));
+            }
+
+            if (path.EndsWith("Unity.ModelView.csproj") || path.EndsWith("Unity.HotfixView.csproj"))
+            {
+                return AddCopyAfterBuild(GenerateCustomProject(content));
+            }
+
             return content;
         }
 
-        private static string GenerateCustomProject(string path, string content, params string[] links)
+        /// <summary>
+        /// 对生成的解决方案文件(.sln)进行处理, 此处主要为了隐藏一些没有作用的C#项目
+        /// </summary>
+        public static string OnGeneratedSlnSolution(string _, string content)
         {
-            XmlDocument doc = new XmlDocument();
+            // Client
+            content = HideCSProject(content, "Ignore.Generate.Client.csproj");
+            content = HideCSProject(content, "Ignore.Model.Client.csproj");
+            content = HideCSProject(content, "Ignore.Hotfix.Client.csproj");
+            content = HideCSProject(content, "Ignore.ModelView.Client.csproj");
+            content = HideCSProject(content, "Ignore.HotfixView.Client.csproj");
+
+            // Server
+            content = HideCSProject(content, "Ignore.Generate.Server.csproj");
+            content = HideCSProject(content, "Ignore.Model.Server.csproj");
+            content = HideCSProject(content, "Ignore.Hotfix.Server.csproj");
+
+            // ClientServer
+            content = HideCSProject(content, "Ignore.Generate.ClientServer.csproj");
+
+            return content;
+        }
+
+        /// <summary>
+        /// 自定义C#项目配置
+        /// 参考链接:
+        /// https://zhuanlan.zhihu.com/p/509046784
+        /// https://learn.microsoft.com/zh-cn/visualstudio/ide/reference/build-events-page-project-designer-csharp?view=vs-2022
+        /// https://learn.microsoft.com/zh-cn/visualstudio/ide/how-to-specify-build-events-csharp?view=vs-2022
+        /// </summary>
+        static string GenerateCustomProject(string content)
+        {
+            XmlDocument doc = new();
             doc.LoadXml(content);
-
             var newDoc = doc.Clone() as XmlDocument;
-
             var rootNode = newDoc.GetElementsByTagName("Project")[0];
 
-            XmlElement itemGroup = newDoc.CreateElement("ItemGroup", newDoc.DocumentElement.NamespaceURI);
-            foreach (var s in links)
+            // 添加分析器引用
             {
-                string[] ss = s.Split(' ');
-                string p = ss[0];
-                string linkStr = ss[1];
-                XmlElement compile = newDoc.CreateElement("Compile", newDoc.DocumentElement.NamespaceURI);
-                XmlElement link = newDoc.CreateElement("Link", newDoc.DocumentElement.NamespaceURI);
-                link.InnerText = linkStr;
-                compile.AppendChild(link);
-                compile.SetAttribute("Include", p);
-                itemGroup.AppendChild(compile);
+                XmlElement itemGroup = newDoc.CreateElement("ItemGroup", newDoc.DocumentElement.NamespaceURI);
+                var projectReference = newDoc.CreateElement("ProjectReference", newDoc.DocumentElement.NamespaceURI);
+                projectReference.SetAttribute("Include", @"..\Share\Analyzer\Share.Analyzer.csproj");
+                projectReference.SetAttribute("OutputItemType", @"Analyzer");
+                projectReference.SetAttribute("ReferenceOutputAssembly", @"false");
+
+                var project = newDoc.CreateElement("Project", newDoc.DocumentElement.NamespaceURI);
+                project.InnerText = @"{d1f2986b-b296-4a2d-8f12-be9f470014c3}";
+                projectReference.AppendChild(project);
+
+                var name = newDoc.CreateElement("Name", newDoc.DocumentElement.NamespaceURI);
+                name.InnerText = "Analyzer";
+                projectReference.AppendChild(name);
+
+                itemGroup.AppendChild(projectReference);
+                rootNode.AppendChild(itemGroup);
             }
 
-            var projectReference = newDoc.CreateElement("ProjectReference", newDoc.DocumentElement.NamespaceURI);
-            projectReference.SetAttribute("Include", @"..\Share\Analyzer\Share.Analyzer.csproj");
-            projectReference.SetAttribute("OutputItemType", @"Analyzer");
-            projectReference.SetAttribute("ReferenceOutputAssembly", @"false");
-
-            var project = newDoc.CreateElement("Project", newDoc.DocumentElement.NamespaceURI);
-            project.InnerText = @"{d1f2986b-b296-4a2d-8f12-be9f470014c3}";
-            projectReference.AppendChild(project);
-
-            var name = newDoc.CreateElement("Name", newDoc.DocumentElement.NamespaceURI);
-            name.InnerText = "Analyzer";
-            projectReference.AppendChild(project);
-
-            itemGroup.AppendChild(projectReference);
-
-            rootNode.AppendChild(itemGroup);
-
-            using (StringWriter sw = new StringWriter())
+            // AfterBuild(字符串替换后作用是编译后复制到CodeDir)
             {
-
-                using (XmlTextWriter tx = new XmlTextWriter(sw))
-                {
-                    tx.Formatting = Formatting.Indented;
-                    newDoc.WriteTo(tx);
-                    tx.Flush();
-                    return sw.GetStringBuilder().ToString();
-                }
+                var target = newDoc.CreateElement("Target", newDoc.DocumentElement.NamespaceURI);
+                target.SetAttribute("Name", "AfterBuild");
+                rootNode.AppendChild(target);
             }
+
+            using StringWriter sw = new();
+            using XmlTextWriter tx = new(sw);
+            tx.Formatting = Formatting.Indented;
+            newDoc.WriteTo(tx);
+            tx.Flush();
+            return sw.GetStringBuilder().ToString();
+        }
+
+        /// <summary>
+        /// 编译dll文件后额外复制的目录配置
+        /// </summary>
+        static string AddCopyAfterBuild(string content)
+        {
+            return content.Replace("<Target Name=\"AfterBuild\" />",
+                "<Target Name=\"PostBuild\" AfterTargets=\"PostBuildEvent\">\n" +
+                $"    <Copy SourceFiles=\"$(TargetDir)/$(TargetName).dll\" DestinationFiles=\"$(ProjectDir)/{Define.CodeDir}/$(TargetName).dll.bytes\" ContinueOnError=\"false\" />\n" +
+                $"    <Copy SourceFiles=\"$(TargetDir)/$(TargetName).pdb\" DestinationFiles=\"$(ProjectDir)/{Define.CodeDir}/$(TargetName).pdb.bytes\" ContinueOnError=\"false\" />\n" +
+                $"    <Copy SourceFiles=\"$(TargetDir)/$(TargetName).dll\" DestinationFiles=\"$(ProjectDir)/{Define.BuildOutputDir}/$(TargetName).dll\" ContinueOnError=\"false\" />\n" +
+                $"    <Copy SourceFiles=\"$(TargetDir)/$(TargetName).pdb\" DestinationFiles=\"$(ProjectDir)/{Define.BuildOutputDir}/$(TargetName).pdb\" ContinueOnError=\"false\" />\n" +
+                "  </Target>\n");
+        }
+
+        /// <summary>
+        /// 隐藏指定项目
+        /// </summary>
+        static string HideCSProject(string content, string projectName)
+        {
+            return Regex.Replace(content, $"Project.*{projectName}.*\nEndProject", string.Empty);
         }
     }
 }

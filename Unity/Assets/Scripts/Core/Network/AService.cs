@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Net;
 
@@ -6,87 +7,78 @@ namespace ET
 {
     public abstract class AService: IDisposable
     {
-        public int Id { get; set; }
+        public Action<long, IPEndPoint> AcceptCallback;
+        public Action<long, MemoryBuffer> ReadCallback;
+        public Action<long, int> ErrorCallback;
+        
+        public long Id { get; set; }
         
         public ServiceType ServiceType { get; protected set; }
         
-        public ThreadSynchronizationContext ThreadSynchronizationContext;
-        
-        protected AService()
+        private const int MaxMemoryBufferSize = 1024;
+		
+        private readonly Queue<MemoryBuffer> pool = new();
+
+        public MemoryBuffer Fetch(int size = 0)
         {
-            NetServices.Instance.Add(this);
+            if (size > MaxMemoryBufferSize)
+            {
+                return new MemoryBuffer(size);
+            }
+            
+            if (size < MaxMemoryBufferSize)
+            {
+                size = MaxMemoryBufferSize;
+            }
+            
+            if (this.pool.Count == 0)
+            {
+                return new MemoryBuffer(size);
+            }
+            
+            return pool.Dequeue();
         }
 
+        public void Recycle(MemoryBuffer memoryBuffer)
+        {
+            if (memoryBuffer.Capacity > 1024)
+            {
+                return;
+            }
+            
+            if (this.pool.Count > 10) // 这里不需要太大，其实Kcp跟Tcp,这里1就足够了
+            {
+                return;
+            }
+            
+            memoryBuffer.Seek(0, SeekOrigin.Begin);
+            memoryBuffer.SetLength(0);
+            
+            this.pool.Enqueue(memoryBuffer);
+        }
+        
+        
         public virtual void Dispose()
         {
-            NetServices.Instance.Remove(this);
         }
-        
-        // localConn放在低32bit
-        private long connectIdGenerater = int.MaxValue;
-        public long CreateConnectChannelId(uint localConn)
-        {
-            return (--this.connectIdGenerater << 32) | localConn;
-        }
-        
-        public uint CreateRandomLocalConn()
-        {
-            return (1u << 30) | RandomGenerator.Instance.RandUInt32();
-        }
-
-        // localConn放在低32bit
-        private long acceptIdGenerater = 1;
-        public long CreateAcceptChannelId(uint localConn)
-        {
-            return (++this.acceptIdGenerater << 32) | localConn;
-        }
-
 
         public abstract void Update();
 
-        public abstract void Remove(long id);
+        public abstract void Remove(long id, int error = 0);
         
-        public abstract bool IsDispose();
-
-        protected abstract void Get(long id, IPEndPoint address);
-
-        protected abstract void Send(long channelId, long actorId, MemoryStream stream);
+        public abstract bool IsDisposed();
         
-        protected void OnAccept(long channelId, IPEndPoint ipEndPoint)
-        {
-            this.AcceptCallback.Invoke(channelId, ipEndPoint);
-        }
+        public abstract void Create(long id, IPEndPoint ipEndPoint);
 
-        public void OnRead(long channelId, MemoryStream memoryStream)
-        {
-            this.ReadCallback.Invoke(channelId, memoryStream);
-        }
+        public abstract void Send(long channelId, MemoryBuffer memoryBuffer);
 
-        public void OnError(long channelId, int e)
+        public virtual (uint, uint) GetChannelConn(long channelId)
         {
-            this.Remove(channelId);
-            
-            this.ErrorCallback?.Invoke(channelId, e);
+            throw new Exception($"default conn throw Exception! {channelId}");
         }
-
         
-        public Action<long, IPEndPoint> AcceptCallback;
-        public Action<long, int> ErrorCallback;
-        public Action<long, MemoryStream> ReadCallback;
-
-        public void RemoveChannel(long channelId)
+        public virtual void ChangeAddress(long channelId, IPEndPoint ipEndPoint)
         {
-            this.Remove(channelId);
-        }
-
-        public void SendStream(long channelId, long actorId, MemoryStream stream)
-        {
-            this.Send(channelId, actorId, stream);
-        }
-
-        public void GetOrCreate(long id, IPEndPoint address)
-        {
-            this.Get(id, address);
         }
     }
 }
